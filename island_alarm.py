@@ -8,17 +8,18 @@ def check_islands():
     url = "https://developer-lostark.game.onstove.com/gamecontents/calendar"
     headers = {
         "accept": "application/json",
-        "Authorization": f"Bearer {API_KEY}"
+        "authorization": f"bearer {API_KEY}"
     }
 
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
-        data = response.json()
+        data = response.json()  # ← 이건 list
 
         today_gold_islands = []
 
-        for item in data.get("Calendar", []):
+        # ✅ 여기 수정됨
+        for item in data:
             if item.get("CategoryName") == "모험 섬":
                 for reward in item.get("RewardItems", []):
                     if reward.get("Name") == "골드":
