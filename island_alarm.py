@@ -1,9 +1,12 @@
 import requests
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 API_KEY = os.environ.get("LOSTARK_API_KEY")
 WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
+
+# 한국 시간대 (UTC+9)
+KST = timezone(timedelta(hours=9))
 
 def check_islands():
     url = "https://developer-lostark.game.onstove.com/gamecontents/calendar"
@@ -12,7 +15,8 @@ def check_islands():
         "authorization": f"bearer {API_KEY}"
     }
 
-    today = datetime.now().date()
+    now_kst = datetime.now(KST)
+    today = now_kst.date()
 
     response = requests.get(url, headers=headers)
     response.raise_for_status()
@@ -50,11 +54,12 @@ def check_islands():
                 "times": today_times
             })
 
-    send_discord_message(gold_islands)
+    send_discord_message(gold_islands, now_kst)
 
-def send_discord_message(gold_islands):
-    today_str = datetime.now().strftime("%Y-%m-%d")
+def send_discord_message(gold_islands, now_kst):
+    today_str = now_kst.strftime("%Y-%m-%d")
 
+    # 골드섬 있는 날
     if gold_islands:
         content = "@everyone"
         embed = {
@@ -62,7 +67,9 @@ def send_discord_message(gold_islands):
             "color": 0xFFD700,
             "description": f"📅 {today_str}",
             "fields": [],
-            "footer": {"text": "로스트아크 모험 섬 알림 봇"}
+            "footer": {
+                "text": "로스트아크 모험 섬 알림 봇"
+            }
         }
 
         for island in gold_islands:
@@ -72,13 +79,19 @@ def send_discord_message(gold_islands):
                 "inline": False
             })
 
+    # 골드섬 없는 날
     else:
         content = ""
         embed = {
             "title": "🏝️ 오늘의 모험 섬 안내",
-            "color": 0xAAAAAA,
-            "description": f"📅 {today_str}\n\n❌ 오늘은 **골드 모험 섬이 없습니다**.",
-            "footer": {"text": "로스트아크 모험 섬 알림 봇"}
+            "color": 0x9E9E9E,
+            "description": (
+                f"📅 {today_str}\n\n"
+                "❌ 오늘은 **골드 모험 섬이 없습니다**."
+            ),
+            "footer": {
+                "text": "로스트아크 모험 섬 알림 봇"
+            }
         }
 
     payload = {
