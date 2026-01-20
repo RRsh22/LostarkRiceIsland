@@ -1,0 +1,31 @@
+name: Daily Island Check
+
+on:
+  schedule:
+    # 매일 한국 시간 오전 10시 (UTC 0시)
+    - cron: '30 1 * * *'
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  check-islands:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        pip install requests
+        
+    - name: Run island checker
+      env:
+        LOSTARK_API_KEY: ${{ secrets.LOSTARK_API_KEY }}
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      run: |
+        python island_alarm.py
