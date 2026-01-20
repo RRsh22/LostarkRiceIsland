@@ -44,17 +44,19 @@ def check_islands():
 
         gold_islands = []
 
-        # API 응답은 리스트 구조
+        # API 응답은 리스트
         for item in data:
             if item.get("CategoryName") != "모험 섬":
                 continue
 
-            # 오늘 날짜만 필터
+            # 오늘 날짜에 해당하는 시간만 필터
             start_times = item.get("StartTimes", [])
-            today_times = [
-                t for t in start_times
-                if datetime.fromisoformat(t).date() == today
-            ]
+            today_times = []
+
+            for t in start_times:
+                dt = datetime.fromisoformat(t)
+                if dt.date() == today:
+                    today_times.append(dt.strftime("%H:%M"))
 
             if not today_times:
                 continue
@@ -66,16 +68,13 @@ def check_islands():
             if has_gold:
                 gold_islands.append({
                     "name": item.get("ContentsName"),
-                    "times": [
-                        datetime.fromisoformat(t).strftime("%H:%M")
-                        for t in today_times
-                    ]
+                    "times": today_times
                 })
 
         # =====================
-        # 임베드 메시지 구성
+        # 임베드 내용 구성
         # =====================
-        description = ""
+        description = f"📅 {today}\n\n"
 
         if gold_islands:
             description += "💰 **쌀섬 등장!**\n\n"
@@ -89,7 +88,7 @@ def check_islands():
 
             description += "@everyone 쌀캐라 쌀숭이들아"
         else:
-            description = "❌ 오늘은 골드 모험 섬이 없습니다."
+            description += "❌ 오늘은 골드 모험 섬이 없습니다."
 
         embed = {
             "title": "🏝️ 오늘의 모험 섬 안내",
