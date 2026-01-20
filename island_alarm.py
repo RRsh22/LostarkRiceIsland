@@ -8,7 +8,7 @@ def check_islands():
     url = "https://developer-lostark.game.onstove.com/gamecontents/calendar"
     headers = {
         "accept": "application/json",
-        "authorization": f"bearer {API_KEY}"
+        "Authorization": f"Bearer {API_KEY}"
     }
 
     try:
@@ -18,7 +18,6 @@ def check_islands():
 
         today_gold_islands = []
 
-        # 🔥 핵심 수정 부분
         for item in data.get("Calendar", []):
             if item.get("CategoryName") == "모험 섬":
                 for reward in item.get("RewardItems", []):
