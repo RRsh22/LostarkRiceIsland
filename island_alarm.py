@@ -1,12 +1,17 @@
 import requests
 import os
 from datetime import datetime, timedelta, timezone
+import sys
 
 # =====================
-# 환경 변수
+# 환경 변수 (GitHub Secrets)
 # =====================
 API_KEY = os.environ.get("LOSTARK_API_KEY")
 WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
+
+if not API_KEY or not WEBHOOK_URL:
+    print("환경 변수 누락")
+    sys.exit(1)
 
 # =====================
 # 시간대 설정
@@ -18,12 +23,12 @@ now_kst = datetime.now(KST)
 today = now_kst.date()
 
 # =====================
-# 10:30 이전 실행 차단 (지연 대비)
+# 10:30 이전 실행 차단
 # =====================
 TARGET_TIME = now_kst.replace(hour=10, minute=30, second=0, microsecond=0)
 if now_kst < TARGET_TIME:
-    print("아직 알림 시간 아님 (10:30 이전)")
-    exit(0)
+    print("10:30 이전 실행 → 종료")
+    sys.exit(0)
 
 # =====================
 # 디스코드 전송
@@ -56,7 +61,7 @@ def check_islands():
             continue
 
         # =====================
-        # 오늘 KST 기준 시간 필터
+        # 오늘(KST) 기준 시간 필터
         # =====================
         today_times = []
 
@@ -71,10 +76,14 @@ def check_islands():
             continue
 
         # =====================
-        # 골드 보상 체크
+        # 골드 보상 판별 (중요 수정)
         # =====================
         rewards = item.get("RewardItems", [])
-        has_gold = any(r.get("Name") == "골드" for r in rewards)
+
+        has_gold = any(
+            "골드" in r.get("Name", "")
+            for r in rewards
+        )
 
         if has_gold:
             gold_islands.append({
@@ -83,12 +92,12 @@ def check_islands():
             })
 
     # =====================
-    # 디스코드 임베드
+    # 디스코드 메시지 구성
     # =====================
     description = f"📅 {today}\n\n"
 
     if gold_islands:
-        description += "💰 **쌀섬 등장!**\n\n"
+        description += "💰 **오늘의 골드 모험 섬**\n\n"
         for island in gold_islands:
             description += (
                 f"📍 **{island['name']}**\n"
