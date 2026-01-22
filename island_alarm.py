@@ -1,7 +1,7 @@
 import requests
 import os
-from datetime import datetime, timedelta, timezone
 import sys
+from datetime import datetime, timedelta, timezone
 
 # =====================
 # 환경 변수 (GitHub Secrets)
@@ -10,7 +10,7 @@ API_KEY = os.environ.get("LOSTARK_API_KEY")
 WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
 
 if not API_KEY or not WEBHOOK_URL:
-    print("환경 변수 누락")
+    print("❌ 환경 변수 누락 (LOSTARK_API_KEY / DISCORD_WEBHOOK_URL)")
     sys.exit(1)
 
 # =====================
@@ -27,7 +27,7 @@ today = now_kst.date()
 # =====================
 TARGET_TIME = now_kst.replace(hour=10, minute=30, second=0, microsecond=0)
 if now_kst < TARGET_TIME:
-    print("10:30 이전 실행 → 종료")
+    print("⏳ 10:30 이전 실행 → 종료")
     sys.exit(0)
 
 # =====================
@@ -36,7 +36,9 @@ if now_kst < TARGET_TIME:
 def send_discord_message(embed):
     payload = {
         "embeds": [embed],
-        "allowed_mentions": {"parse": ["everyone"]}
+        "allowed_mentions": {
+            "parse": ["everyone"]
+        }
     }
     requests.post(WEBHOOK_URL, json=payload)
 
@@ -76,13 +78,14 @@ def check_islands():
             continue
 
         # =====================
-        # 골드 보상 판별 (중요 수정)
+        # 골드 보상 판별 (최종 안정 로직)
         # =====================
         rewards = item.get("RewardItems", [])
+        icon = (item.get("ContentsIcon") or "").lower()
 
-        has_gold = any(
-            "골드" in r.get("Name", "")
-            for r in rewards
+        has_gold = (
+            any("골드" in r.get("Name", "") for r in rewards)
+            or "gold" in icon
         )
 
         if has_gold:
@@ -115,7 +118,7 @@ def check_islands():
     }
 
     send_discord_message(embed)
-    print("알림 전송 완료")
+    print("✅ 알림 전송 완료")
 
 # =====================
 # 실행
