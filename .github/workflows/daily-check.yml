@@ -23,4 +23,4 @@ jobs:
         env:
           LOSTARK_API_KEY: ${{ secrets.LOSTARK_API_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: python main.py
+        run: python island_alarm.py
