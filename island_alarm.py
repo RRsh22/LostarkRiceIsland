@@ -125,7 +125,7 @@ def check_islands():
                 f"📍 **{island['name']}**\n"
                 f"⏰ {' / '.join(island['times'])}\n\n"
             )
-        description += "@everyone 쌀캐라 쌀송이들아"
+        description += "@everyone 쌀캐라 쌀숭이들아"
     else:
         description += "❌ 오늘은 골드 모험 섬이 없습니다."
 
