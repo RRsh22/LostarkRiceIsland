@@ -14,31 +14,38 @@ if not API_KEY or not WEBHOOK_URL:
     sys.exit(1)
 
 # =====================
-# 시간대 설정
+# 시간 설정 (KST)
 # =====================
-UTC = timezone.utc
 KST = timezone(timedelta(hours=9))
-
 now_kst = datetime.now(KST)
 today = now_kst.date()
+weekday = now_kst.weekday()  # 월=0, 토=5, 일=6
 
 # =====================
 # 10:30 이전 실행 차단
 # =====================
 TARGET_TIME = now_kst.replace(hour=10, minute=30, second=0, microsecond=0)
 if now_kst < TARGET_TIME:
-    print("⏳ 10:30 이전 실행 → 종료")
     sys.exit(0)
+
+# =====================
+# 모험 섬 시간 그룹 정의
+# =====================
+WEEKDAY_TIMES = {"11:00", "13:00", "19:00", "21:00", "23:00"}
+WEEKEND_GROUP_A = {"09:00", "11:00", "13:00"}
+WEEKEND_GROUP_B = {"19:00", "21:00", "23:00"}
 
 # =====================
 # 디스코드 전송
 # =====================
 def send_discord_message(embed):
-    payload = {
-        "embeds": [embed],
-        "allowed_mentions": {"parse": ["everyone"]}
-    }
-    requests.post(WEBHOOK_URL, json=payload)
+    requests.post(
+        WEBHOOK_URL,
+        json={
+            "embeds": [embed],
+            "allowed_mentions": {"parse": ["everyone"]}
+        }
+    )
 
 # =====================
 # 메인 로직
@@ -50,33 +57,52 @@ def check_islands():
         "authorization": f"bearer {API_KEY}"
     }
 
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    data = response.json()
-
+    data = requests.get(url, headers=headers).json()
     gold_islands = []
 
     for item in data:
         if item.get("CategoryName") != "모험 섬":
             continue
 
-        # 오늘(KST) 시간 필터
-        today_times = []
+        # 오늘 시간 수집 (KST 기준)
+        today_times = set()
         for t in item.get("StartTimes", []):
-            dt = datetime.fromisoformat(t).replace(tzinfo=UTC).astimezone(KST)
+            dt = datetime.fromisoformat(t)
             if dt.date() == today:
-                today_times.append(dt.strftime("%H:%M"))
+                today_times.add(dt.strftime("%H:%M"))
 
         if not today_times:
             continue
 
         # =====================
-        # ✅ 올바른 골드 판별
+        # 오늘 이 섬의 시간 그룹 판별
+        # =====================
+        final_times = set()
+
+        if weekday < 5:
+            # 평일
+            final_times = today_times & WEEKDAY_TIMES
+        else:
+            # 주말 → 그룹 분리
+            group_a = today_times & WEEKEND_GROUP_A
+            group_b = today_times & WEEKEND_GROUP_B
+
+            if group_a:
+                final_times = group_a
+            elif group_b:
+                final_times = group_b
+            else:
+                continue
+
+        if not final_times:
+            continue
+
+        # =====================
+        # 골드 판별
         # =====================
         has_gold = False
-
-        for reward_group in item.get("RewardItems", []):
-            for reward in reward_group.get("Items", []):
+        for group in item.get("RewardItems", []):
+            for reward in group.get("Items", []):
                 if reward.get("Name") == "골드":
                     has_gold = True
                     break
@@ -84,7 +110,7 @@ def check_islands():
         if has_gold:
             gold_islands.append({
                 "name": item.get("ContentsName"),
-                "times": sorted(today_times)
+                "times": sorted(final_times)
             })
 
     # =====================
@@ -99,7 +125,7 @@ def check_islands():
                 f"📍 **{island['name']}**\n"
                 f"⏰ {' / '.join(island['times'])}\n\n"
             )
-        description += "@everyone 쌀캐라 쌀숭이들아"
+        description += "@everyone 쌀캐라 쌀송이들아"
     else:
         description += "❌ 오늘은 골드 모험 섬이 없습니다."
 
@@ -111,7 +137,6 @@ def check_islands():
     }
 
     send_discord_message(embed)
-    print("✅ 알림 전송 완료")
 
 # =====================
 # 실행
