@@ -1,31 +1,26 @@
-name: Daily Island Check
+name: LostArk Gold Island Notify
 
 on:
   schedule:
-    # 매일 한국 시간 오전 10시 (UTC 0시)
-    - cron: '30 1 * * *'
-  workflow_dispatch:  # 수동 실행 가능
+    - cron: '25 1 * * *'  # UTC 01:25 = KST 10:25
+  workflow_dispatch:
 
 jobs:
-  check-islands:
+  run:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        
-    - name: Install dependencies
-      run: |
-        pip install requests
-        
-    - name: Run island checker
-      env:
-        LOSTARK_API_KEY: ${{ secrets.LOSTARK_API_KEY }}
-        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-      run: |
-        python island_alarm.py
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run script
+        env:
+          LOSTARK_API_KEY: ${{ secrets.LOSTARK_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python main.py
