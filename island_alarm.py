@@ -3,17 +3,27 @@ import os
 from datetime import datetime, timedelta, timezone
 
 # =====================
-# 환경 변수 (GitHub Secrets)
+# 환경 변수
 # =====================
 API_KEY = os.environ.get("LOSTARK_API_KEY")
 WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
 
 # =====================
-# 시간대 설정 (한국)
+# 시간대 설정
 # =====================
+UTC = timezone.utc
 KST = timezone(timedelta(hours=9))
+
 now_kst = datetime.now(KST)
 today = now_kst.date()
+
+# =====================
+# 10:30 이전 실행 차단 (지연 대비)
+# =====================
+TARGET_TIME = now_kst.replace(hour=10, minute=30, second=0, microsecond=0)
+if now_kst < TARGET_TIME:
+    print("아직 알림 시간 아님 (10:30 이전)")
+    exit(0)
 
 # =====================
 # 디스코드 전송
@@ -21,9 +31,7 @@ today = now_kst.date()
 def send_discord_message(embed):
     payload = {
         "embeds": [embed],
-        "allowed_mentions": {
-            "parse": ["everyone"]
-        }
+        "allowed_mentions": {"parse": ["everyone"]}
     }
     requests.post(WEBHOOK_URL, json=payload)
 
@@ -37,71 +45,68 @@ def check_islands():
         "authorization": f"bearer {API_KEY}"
     }
 
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        data = response.json()
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    data = response.json()
 
-        gold_islands = []
+    gold_islands = []
 
-        # API 응답은 리스트
-        for item in data:
-            if item.get("CategoryName") != "모험 섬":
-                continue
-
-            # 오늘 날짜에 해당하는 시간만 필터
-            start_times = item.get("StartTimes", [])
-            today_times = []
-
-            for t in start_times:
-                dt = datetime.fromisoformat(t)
-                if dt.date() == today:
-                    today_times.append(dt.strftime("%H:%M"))
-
-            if not today_times:
-                continue
-
-            # 골드 보상 여부 확인
-            rewards = item.get("RewardItems", [])
-            has_gold = any(r.get("Name") == "골드" for r in rewards)
-
-            if has_gold:
-                gold_islands.append({
-                    "name": item.get("ContentsName"),
-                    "times": today_times
-                })
+    for item in data:
+        if item.get("CategoryName") != "모험 섬":
+            continue
 
         # =====================
-        # 임베드 내용 구성
+        # 오늘 KST 기준 시간 필터
         # =====================
-        description = f"📅 {today}\n\n"
+        today_times = []
 
-        if gold_islands:
-            description += "💰 **쌀섬 등장!**\n\n"
+        for t in item.get("StartTimes", []):
+            dt_utc = datetime.fromisoformat(t).replace(tzinfo=UTC)
+            dt_kst = dt_utc.astimezone(KST)
 
-            for island in gold_islands:
-                times = " / ".join(island["times"])
-                description += (
-                    f"📍 **{island['name']}**\n"
-                    f"⏰ {times}\n\n"
-                )
+            if dt_kst.date() == today:
+                today_times.append(dt_kst.strftime("%H:%M"))
 
-            description += "@everyone 쌀캐라 쌀숭이들아"
-        else:
-            description += "❌ 오늘은 골드 모험 섬이 없습니다."
+        if not today_times:
+            continue
 
-        embed = {
-            "title": "🏝️ 오늘의 모험 섬 안내",
-            "description": description,
-            "color": 0xF1C40F,
-            "timestamp": now_kst.isoformat()
-        }
+        # =====================
+        # 골드 보상 체크
+        # =====================
+        rewards = item.get("RewardItems", [])
+        has_gold = any(r.get("Name") == "골드" for r in rewards)
 
-        send_discord_message(embed)
-        print("알림 전송 완료!")
+        if has_gold:
+            gold_islands.append({
+                "name": item.get("ContentsName"),
+                "times": sorted(today_times)
+            })
 
-    except Exception as e:
-        print(f"오류 발생: {e}")
+    # =====================
+    # 디스코드 임베드
+    # =====================
+    description = f"📅 {today}\n\n"
+
+    if gold_islands:
+        description += "💰 **쌀섬 등장!**\n\n"
+        for island in gold_islands:
+            description += (
+                f"📍 **{island['name']}**\n"
+                f"⏰ {' / '.join(island['times'])}\n\n"
+            )
+        description += "@everyone 쌀캐라 쌀숭이들아"
+    else:
+        description += "❌ 오늘은 골드 모험 섬이 없습니다."
+
+    embed = {
+        "title": "🏝️ 오늘의 모험 섬 안내",
+        "description": description,
+        "color": 0xF1C40F,
+        "timestamp": now_kst.isoformat()
+    }
+
+    send_discord_message(embed)
+    print("알림 전송 완료")
 
 # =====================
 # 실행
