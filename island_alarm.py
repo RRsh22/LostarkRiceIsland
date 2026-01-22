@@ -1,6 +1,7 @@
 import requests
 import os
 import sys
+import json
 from datetime import datetime, timedelta, timezone
 
 # =====================
@@ -56,6 +57,13 @@ def check_islands():
     response.raise_for_status()
     data = response.json()
 
+    # =====================
+    # 🔎 DEBUG: Calendar API 원본 출력
+    # =====================
+    print("===== CALENDAR API RAW JSON START =====")
+    print(json.dumps(data, ensure_ascii=False, indent=2))
+    print("===== CALENDAR API RAW JSON END =====")
+
     gold_islands = []
 
     for item in data:
@@ -78,7 +86,7 @@ def check_islands():
             continue
 
         # =====================
-        # 골드 보상 판별 (최종 안정 로직)
+        # 골드 보상 판별 (현 상태 그대로)
         # =====================
         rewards = item.get("RewardItems", [])
         icon = (item.get("ContentsIcon") or "").lower()
