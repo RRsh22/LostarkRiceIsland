@@ -1,17 +1,16 @@
 import requests
 import os
 import sys
-import json
 from datetime import datetime, timedelta, timezone
 
 # =====================
-# 환경 변수 (GitHub Secrets)
+# 환경 변수
 # =====================
 API_KEY = os.environ.get("LOSTARK_API_KEY")
 WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
 
 if not API_KEY or not WEBHOOK_URL:
-    print("❌ 환경 변수 누락 (LOSTARK_API_KEY / DISCORD_WEBHOOK_URL)")
+    print("❌ 환경 변수 누락")
     sys.exit(1)
 
 # =====================
@@ -37,9 +36,7 @@ if now_kst < TARGET_TIME:
 def send_discord_message(embed):
     payload = {
         "embeds": [embed],
-        "allowed_mentions": {
-            "parse": ["everyone"]
-        }
+        "allowed_mentions": {"parse": ["everyone"]}
     }
     requests.post(WEBHOOK_URL, json=payload)
 
@@ -57,44 +54,32 @@ def check_islands():
     response.raise_for_status()
     data = response.json()
 
-    # =====================
-    # 🔎 DEBUG: Calendar API 원본 출력
-    # =====================
-    print("===== CALENDAR API RAW JSON START =====")
-    print(json.dumps(data, ensure_ascii=False, indent=2))
-    print("===== CALENDAR API RAW JSON END =====")
-
     gold_islands = []
 
     for item in data:
         if item.get("CategoryName") != "모험 섬":
             continue
 
-        # =====================
-        # 오늘(KST) 기준 시간 필터
-        # =====================
+        # 오늘(KST) 시간 필터
         today_times = []
-
         for t in item.get("StartTimes", []):
-            dt_utc = datetime.fromisoformat(t).replace(tzinfo=UTC)
-            dt_kst = dt_utc.astimezone(KST)
-
-            if dt_kst.date() == today:
-                today_times.append(dt_kst.strftime("%H:%M"))
+            dt = datetime.fromisoformat(t).replace(tzinfo=UTC).astimezone(KST)
+            if dt.date() == today:
+                today_times.append(dt.strftime("%H:%M"))
 
         if not today_times:
             continue
 
         # =====================
-        # 골드 보상 판별 (현 상태 그대로)
+        # ✅ 올바른 골드 판별
         # =====================
-        rewards = item.get("RewardItems", [])
-        icon = (item.get("ContentsIcon") or "").lower()
+        has_gold = False
 
-        has_gold = (
-            any("골드" in r.get("Name", "") for r in rewards)
-            or "gold" in icon
-        )
+        for reward_group in item.get("RewardItems", []):
+            for reward in reward_group.get("Items", []):
+                if reward.get("Name") == "골드":
+                    has_gold = True
+                    break
 
         if has_gold:
             gold_islands.append({
@@ -103,7 +88,7 @@ def check_islands():
             })
 
     # =====================
-    # 디스코드 메시지 구성
+    # 디스코드 메시지
     # =====================
     description = f"📅 {today}\n\n"
 
