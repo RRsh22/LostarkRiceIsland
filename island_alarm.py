@@ -22,10 +22,13 @@ today = now_kst.date()
 weekday = now_kst.weekday()  # 월=0, 토=5, 일=6
 
 # =====================
-# 10:30 이전 실행 차단
+# ⏰ 알림 허용 시간창 (10:30 ~ 11:00)
 # =====================
-TARGET_TIME = now_kst.replace(hour=10, minute=30, second=0, microsecond=0)
-if now_kst < TARGET_TIME:
+START_TIME = now_kst.replace(hour=10, minute=30, second=0, microsecond=0)
+END_TIME   = now_kst.replace(hour=11, minute=0,  second=0, microsecond=0)
+
+if not (START_TIME <= now_kst <= END_TIME):
+    print("⏳ 알림 허용 시간창 아님 → 종료")
     sys.exit(0)
 
 # =====================
@@ -64,7 +67,7 @@ def check_islands():
         if item.get("CategoryName") != "모험 섬":
             continue
 
-        # 오늘 시간 수집 (KST 기준)
+        # 오늘 시간 수집
         today_times = set()
         for t in item.get("StartTimes", []):
             dt = datetime.fromisoformat(t)
@@ -75,15 +78,13 @@ def check_islands():
             continue
 
         # =====================
-        # 오늘 이 섬의 시간 그룹 판별
+        # 시간 그룹 판별
         # =====================
         final_times = set()
 
         if weekday < 5:
-            # 평일
             final_times = today_times & WEEKDAY_TIMES
         else:
-            # 주말 → 그룹 분리
             group_a = today_times & WEEKEND_GROUP_A
             group_b = today_times & WEEKEND_GROUP_B
 
@@ -98,14 +99,27 @@ def check_islands():
             continue
 
         # =====================
-        # 골드 판별
+        # 시간대 포함 골드 판별
         # =====================
         has_gold = False
-        for group in item.get("RewardItems", []):
-            for reward in group.get("Items", []):
-                if reward.get("Name") == "골드":
-                    has_gold = True
+
+        for reward_group in item.get("RewardItems", []):
+            for reward in reward_group.get("Items", []):
+                if reward.get("Name") != "골드":
+                    continue
+
+                for rt in reward.get("StartTimes", []) or []:
+                    rt_dt = datetime.fromisoformat(rt)
+                    if rt_dt.date() == today:
+                        rt_time = rt_dt.strftime("%H:%M")
+                        if rt_time in final_times:
+                            has_gold = True
+                            break
+
+                if has_gold:
                     break
+            if has_gold:
+                break
 
         if has_gold:
             gold_islands.append({
@@ -125,7 +139,7 @@ def check_islands():
                 f"📍 **{island['name']}**\n"
                 f"⏰ {' / '.join(island['times'])}\n\n"
             )
-        description += "@everyone 쌀캐라 쌀숭이들아"
+        description += "@everyone 쌀캐라 쌀송이들아"
     else:
         description += "❌ 오늘은 골드 모험 섬이 없습니다."
 
@@ -137,6 +151,7 @@ def check_islands():
     }
 
     send_discord_message(embed)
+    print("✅ 알림 전송 완료")
 
 # =====================
 # 실행
