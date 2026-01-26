@@ -22,23 +22,6 @@ today = now_kst.date()
 weekday = now_kst.weekday()  # 월=0, 토=5, 일=6
 
 # =====================
-# ⏰ 알림 허용 시간창 (10:30 ~ 11:00)
-# =====================
-START_TIME = now_kst.replace(hour=10, minute=30, second=0, microsecond=0)
-END_TIME   = now_kst.replace(hour=11, minute=0,  second=0, microsecond=0)
-
-# =====================
-# 🔎 DEBUG (시간 확정용)
-# =====================
-print(f"[DEBUG] now_kst     = {now_kst.isoformat()}")
-print(f"[DEBUG] START_TIME = {START_TIME.isoformat()}")
-print(f"[DEBUG] END_TIME   = {END_TIME.isoformat()}")
-
-if not (START_TIME <= now_kst <= END_TIME):
-    print("⏳ 알림 허용 시간창 아님 → 종료")
-    sys.exit(0)
-
-# =====================
 # 모험 섬 시간 그룹 정의
 # =====================
 WEEKDAY_TIMES = {"11:00", "13:00", "19:00", "21:00", "23:00"}
@@ -95,7 +78,7 @@ def check_islands():
             # 평일
             final_times = today_times & WEEKDAY_TIMES
         else:
-            # 주말
+            # 주말 (그룹 분리)
             group_a = today_times & WEEKEND_GROUP_A
             group_b = today_times & WEEKEND_GROUP_B
 
@@ -110,7 +93,7 @@ def check_islands():
             continue
 
         # =====================
-        # ✅ 시간대 포함 골드 판별 (핵심)
+        # 오늘 + 해당 시간대 골드 판별 (핵심)
         # =====================
         has_gold = False
 
