@@ -4,6 +4,14 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 # =====================
+# GitHub Actions 트리거 가드
+# =====================
+EVENT_NAME = os.environ.get("GITHUB_EVENT_NAME")
+if EVENT_NAME != "schedule":
+    print(f"[INFO] Triggered by {EVENT_NAME}, skip sending message.")
+    sys.exit(0)
+
+# =====================
 # 환경 변수
 # =====================
 API_KEY = os.environ.get("LOSTARK_API_KEY")
@@ -14,7 +22,7 @@ if not API_KEY or not WEBHOOK_URL:
     sys.exit(1)
 
 # =====================
-# 시간 설정 (KST)
+# 시간 설정 (KST 기준 날짜 계산용)
 # =====================
 KST = timezone(timedelta(hours=9))
 now_kst = datetime.now(KST)
@@ -50,16 +58,17 @@ def check_islands():
         "authorization": f"bearer {API_KEY}"
     }
 
-    data = requests.get(url, headers=headers).json()
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    data = response.json()
+
     gold_islands = []
 
     for item in data:
         if item.get("CategoryName") != "모험 섬":
             continue
 
-        # =====================
-        # 오늘 시간 수집 (KST 기준)
-        # =====================
+        # 오늘 열리는 시간 수집
         today_times = set()
         for t in item.get("StartTimes", []):
             dt = datetime.fromisoformat(t)
@@ -69,16 +78,10 @@ def check_islands():
         if not today_times:
             continue
 
-        # =====================
         # 시간 그룹 판별
-        # =====================
-        final_times = set()
-
         if weekday < 5:
-            # 평일
             final_times = today_times & WEEKDAY_TIMES
         else:
-            # 주말 (그룹 분리)
             group_a = today_times & WEEKEND_GROUP_A
             group_b = today_times & WEEKEND_GROUP_B
 
@@ -92,9 +95,7 @@ def check_islands():
         if not final_times:
             continue
 
-        # =====================
-        # 오늘 + 해당 시간대 골드 판별 (핵심)
-        # =====================
+        # 골드 보상이 실제로 해당 시간대에 있는지 확인
         has_gold = False
 
         for reward_group in item.get("RewardItems", []):
@@ -105,8 +106,7 @@ def check_islands():
                 for rt in reward.get("StartTimes", []) or []:
                     rt_dt = datetime.fromisoformat(rt)
                     if rt_dt.date() == today:
-                        rt_time = rt_dt.strftime("%H:%M")
-                        if rt_time in final_times:
+                        if rt_dt.strftime("%H:%M") in final_times:
                             has_gold = True
                             break
 
@@ -122,7 +122,7 @@ def check_islands():
             })
 
     # =====================
-    # 디스코드 메시지
+    # 디스코드 메시지 구성
     # =====================
     description = f"📅 {today}\n\n"
 
@@ -133,7 +133,7 @@ def check_islands():
                 f"📍 **{island['name']}**\n"
                 f"⏰ {' / '.join(island['times'])}\n\n"
             )
-        description += "@everyone 쌀캐라 쌀숭이들아"
+        description += "@everyone 쌀캐라 쌀송이들아"
     else:
         description += "❌ 오늘은 골드 모험 섬이 없습니다."
 
